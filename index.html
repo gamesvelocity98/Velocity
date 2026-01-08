@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Velocity Games | Elite Multi-Casino</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        :root { --v-green: #3bc117; --v-dark: #0f212e; --v-card: #1a2c38; --v-accent: #2f4553; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--v-dark); color: #d1d5db; -webkit-tap-highlight-color: transparent; overflow-x: hidden; }
+        
+        .safe-top { padding-top: calc(env(safe-area-inset-top) + 70px); }
+        .safe-bottom-padding { padding-bottom: calc(env(safe-area-inset-bottom) + 110px); }
+        
+        .cartoon-tile { background: var(--v-card); border-radius: 16px; border-bottom: 4px solid rgba(0,0,0,0.3); transition: all 0.2s; cursor: pointer; }
+        .cartoon-tile:active { transform: scale(0.95); }
+        
+        .mine-tile { background: var(--v-accent); border-radius: 8px; border-bottom: 4px solid rgba(0,0,0,0.2); transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); position: relative; cursor: pointer; aspect-ratio: 1; }
+        .mine-tile.revealed { transform: rotateY(180deg); background: #07161f; border-bottom: none; }
+        .mine-tile.has-gem { background: linear-gradient(135deg, #3bc117, #10b981); border: 2px solid #3bc117; }
+        .mine-tile.has-bomb { background: linear-gradient(135deg, #ef4444, #991b1b); border: 2px solid #ef4444; }
+        
+        .peg { width: 6px; height: 6px; background: #4a5568; border-radius: 50%; position: absolute; transform: translate(-50%, -50%); box-shadow: 0 0 5px rgba(0,0,0,0.5); }
+        #plinko-ball { 
+            width: 12px; height: 12px; background: #fff; border-radius: 50%; position: absolute; z-index: 50; 
+            box-shadow: 0 0 12px #fff; 
+            transition: top 0.4s cubic-bezier(0.45, 0.05, 0.55, 0.95), left 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+        }
+        .plinko-bin { position: absolute; bottom: 5px; width: 30px; height: 25px; border-radius: 4px; display: flex; items-center; justify-center; font-size: 8px; font-weight: 800; color: white; transform: translateX(-50%); }
+        
+        @keyframes toast-in { 0% { transform: translate(-50%, -100%); opacity: 0; } 100% { transform: translate(-50%, 0); opacity: 1; } }
+        .win-toast { animation: toast-in 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; background: var(--v-green); box-shadow: 0 10px 40px rgba(59, 193, 23, 0.5); }
+        
+        .rocket-fly { animation: rocket-shake 0.1s infinite; }
+        @keyframes rocket-shake { 0%, 100% { transform: translateY(0) rotate(-45deg); } 50% { transform: translateY(-10px) rotate(-45deg); } }
+
+        /* Payment Page Styles */
+        #payment-page {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 1000; display: none; flex-direction: column;
+            color: #1a2c38;
+        }
+        .pay-btn {
+            background: #1a2c38;
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .pay-btn:active { transform: scale(0.96); opacity: 0.9; }
+    </style>
+</head>
+<body>
+
+    <!-- Payment Overlay Page -->
+    <div id="payment-page">
+        <div class="p-4 flex items-center border-b">
+            <button onclick="closePaymentPage()" class="p-2"><i data-lucide="arrow-left" class="w-6 h-6 text-gray-700"></i></button>
+            <span class="ml-4 font-bold text-lg text-gray-800">Payment Gateway</span>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto bg-[#f8fafc] flex flex-col items-center py-8 px-6">
+            <div class="bg-white p-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.05)] w-full max-sm text-center">
+                
+                <div class="mb-6 pt-4">
+                    <p class="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">Amount to Pay</p>
+                    <p class="text-5xl font-black text-[#1a2c38]">₹<span id="pay-amt-display">500</span></p>
+                </div>
+
+                <!-- QR Container Box -->
+                <div class="relative border-[1px] border-gray-100 rounded-3xl p-5 mb-6 bg-gray-50/50">
+                    <p class="text-[11px] font-extrabold text-gray-500 mb-4 uppercase tracking-tighter">Scan QR Code</p>
+                    
+                    <div class="bg-white p-3 inline-block rounded-2xl mb-5 shadow-sm">
+                        <!-- Demo QR Image -->
+                        <img id="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=upi://pay?pa=velocityacademy955699.rzp@rxairtel%26pn=VelocityGames%26cu=INR" class="w-44 h-44 mx-auto" alt="Scan to Pay">
+                    </div>
+
+                    <!-- Updated Payment Button -->
+                    <a id="upi-link" href="upi://pay?pa=velocityacademy955699.rzp@rxairtel&pn=VelocityGames&cu=INR" class="pay-btn mb-4">
+                        <i data-lucide="zap" class="w-5 h-5 fill-white"></i>
+                        PAY NOW
+                    </a>
+
+                    <p class="text-[10px] text-gray-400 leading-tight px-4 mb-2">Pay using any UPI app. After payment, enter your 12-digit UTR/Reference number for verification.</p>
+                </div>
+
+                <button onclick="closePaymentPage()" class="text-gray-400 font-black text-[10px] uppercase tracking-tighter mb-8 block w-full hover:text-blue-600 transition-colors">Cancel Transaction</button>
+
+                <!-- Footer Logos -->
+                <div class="flex justify-center items-center gap-6 opacity-80">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Paytm_Logo_%28standalone%29.svg" class="h-4" alt="Paytm">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rest of the UI -->
+    <div id="win-toast" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-[200] win-toast px-10 py-3 rounded-full flex items-center gap-3">
+        <i data-lucide="trophy" class="text-white w-5 h-5"></i>
+        <span id="win-amount-text" class="text-white font-black italic uppercase">WIN +₹0.00</span>
+    </div>
+
+    <header class="fixed top-0 w-full z-50 bg-[#1a2c38]/95 backdrop-blur-md px-4 py-3 flex justify-between items-center border-b border-white/5">
+        <div class="flex items-center gap-2">
+            <div class="bg-green-500 p-1.5 rounded-lg shadow-lg"><i data-lucide="zap" class="text-black w-5 h-5 fill-black"></i></div>
+            <span class="text-xl font-black italic text-white uppercase tracking-tighter">VELOCITY</span>
+        </div>
+        
+        <div id="auth-btns" class="flex gap-2">
+            <button onclick="openAuthModal('login')" class="bg-[#2f4553] text-white px-3 py-1.5 rounded-lg font-black text-[10px] uppercase border border-white/10 hover:bg-[#3e5a6d] transition-colors">Login</button>
+            <button onclick="openAuthModal('signup')" class="bg-green-500 text-black px-3 py-1.5 rounded-lg font-black text-[10px] uppercase shadow-lg active:scale-95 transition-transform">Sign Up</button>
+        </div>
+
+        <div id="header-user" class="hidden flex items-center gap-3">
+            <div onclick="switchTab('wallet')" class="bg-[#07161f] border border-white/10 px-3 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer">
+                <span class="text-green-500 font-black text-sm">₹</span>
+                <span id="header-balance" class="text-white font-black text-sm">0.00</span>
+            </div>
+            <div onclick="switchTab('profile')" class="w-9 h-9 bg-slate-800 rounded-lg flex items-center justify-center border border-white/10 cursor-pointer"><i data-lucide="user" class="w-4 h-4 text-green-500"></i></div>
+        </div>
+    </header>
+
+    <nav class="fixed bottom-0 w-full z-50 bg-[#1a2c38] border-t border-white/5 flex justify-around py-3 px-2 pb-[calc(env(safe-area-inset-bottom)+12px)]">
+        <button onclick="switchTab('lobby')" class="nav-btn flex flex-col items-center gap-1 text-green-500"><i data-lucide="layout-grid" class="w-6 h-6"></i><span class="text-[9px] font-black uppercase">Lobby</span></button>
+        <button onclick="switchTab('wallet')" class="nav-btn flex flex-col items-center gap-1 text-slate-500"><i data-lucide="wallet" class="w-6 h-6"></i><span class="text-[9px] font-black uppercase">Wallet</span></button>
+        <button onclick="switchTab('profile')" class="nav-btn flex flex-col items-center gap-1 text-slate-500"><i data-lucide="user-cog" class="w-6 h-6"></i><span class="text-[9px] font-black uppercase">Account</span></button>
+    </nav>
+
+    <main class="safe-top safe-bottom-padding px-4">
+        <section id="sec-lobby" class="tab-content">
+            <div id="promo-card" class="bg-gradient-to-br from-green-500/20 to-transparent p-6 rounded-2xl mb-8 border border-white/5 shadow-xl">
+                <h2 class="text-3xl font-black text-white italic">₹500.00 <br> <span class="text-green-500">SIGNUP BONUS</span></h2>
+                <button onclick="openAuthModal('signup')" class="mt-4 bg-green-500 text-black px-8 py-2 rounded-xl font-black text-[10px] uppercase">Claim Now</button>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" id="game-grid"></div>
+        </section>
+
+        <!-- Wallet Section -->
+        <section id="sec-wallet" class="hidden tab-content max-w-lg mx-auto space-y-6">
+            <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl text-center">
+                <h3 class="text-xs font-black text-green-500 uppercase mb-4 italic">Deposit Funds (Min ₹500)</h3>
+                <div class="bg-[#07161f] p-4 rounded-xl flex justify-between border border-white/5 mb-4">
+                    <input id="dep-val" type="number" value="500" min="500" class="bg-transparent text-white font-black text-2xl w-full outline-none">
+                    <span class="text-green-500 font-bold">INR</span>
+                </div>
+                <button onclick="handleInitiateDeposit()" class="w-full bg-green-500 text-black font-black py-4 rounded-xl text-xs uppercase mb-4 shadow-lg active:scale-95 transition-transform">Deposit Now</button>
+                <div class="h-[1px] bg-white/10 w-full my-6"></div>
+                <p class="text-[10px] text-slate-500 font-bold uppercase mb-2">Step 2: Enter UTR to verify</p>
+                <input id="utr-input" type="text" placeholder="Enter 12-digit Ref / UTR No." class="w-full bg-[#07161f] p-4 rounded-xl text-white mb-2 text-sm border border-white/10 outline-none">
+                <button onclick="verifyDeposit()" class="w-full border-2 border-green-500 text-green-500 hover:bg-green-500 hover:text-black font-black py-4 rounded-xl text-xs uppercase transition-colors">Verify Payment</button>
+            </div>
+            
+            <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl">
+                <h3 class="text-xs font-black text-red-500 uppercase mb-4 italic">Withdraw Funds (Min ₹1000)</h3>
+                <div class="space-y-3">
+                    <input id="wit-amt" type="number" placeholder="Withdraw Amount" class="w-full bg-[#07161f] p-4 rounded-xl text-white outline-none border border-white/5">
+                    <input id="wit-name" type="text" placeholder="Account Holder Name" class="w-full bg-[#07161f] p-4 rounded-xl text-white outline-none border border-white/5">
+                    <input id="wit-acc" type="number" placeholder="Account Number" class="w-full bg-[#07161f] p-4 rounded-xl text-white outline-none border border-white/5">
+                    <input id="wit-ifsc" type="text" placeholder="IFSC Code" class="w-full bg-[#07161f] p-4 rounded-xl text-white outline-none border border-white/5">
+                    <button onclick="handleWithdraw()" class="w-full bg-red-600 text-white font-black py-4 rounded-xl text-xs uppercase">Submit Withdrawal</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="sec-history" class="hidden tab-content max-w-lg mx-auto">
+            <div class="flex items-center gap-4 mb-6"><button onclick="switchTab('wallet')" class="bg-[#1a2c38] p-2 rounded-lg text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button><h2 class="text-xl font-black text-white italic uppercase">Withdrawal History</h2></div>
+            <div id="full-history-list" class="space-y-3"></div>
+        </section>
+
+        <section id="sec-dep-history" class="hidden tab-content max-w-lg mx-auto">
+            <div class="flex items-center gap-4 mb-6"><button onclick="switchTab('profile')" class="bg-[#1a2c38] p-2 rounded-lg text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button><h2 class="text-xl font-black text-white italic uppercase">Deposit History</h2></div>
+            <div id="full-dep-history-list" class="space-y-3"></div>
+        </section>
+
+        <section id="sec-profile" class="hidden tab-content max-w-2xl mx-auto space-y-6">
+            <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl">
+                <div class="flex items-center gap-4 mb-6">
+                    <div class="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center border-2 border-green-500"><i data-lucide="user" class="text-white w-8 h-8"></i></div>
+                    <div class="flex-1">
+                        <h4 id="prof-email-display" class="text-white font-black italic text-lg leading-none mb-1">GUEST</h4>
+                        <span id="vip-label" class="bg-green-500 text-black px-2 py-0.5 rounded text-[8px] font-black uppercase">Bronze VIP</span>
+                    </div>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-[#07161f] p-3 rounded-xl border border-white/5 text-center"><p class="text-[8px] text-slate-500 font-black uppercase">Played</p><p id="stats-played" class="text-white font-black">0</p></div>
+                    <div class="bg-[#07161f] p-3 rounded-xl border border-white/5 text-center"><p class="text-[8px] text-green-500 font-black uppercase">Won</p><p id="stats-won" class="text-white font-black">0</p></div>
+                    <div class="bg-[#07161f] p-3 rounded-xl border border-white/5 text-center"><p class="text-[8px] text-red-500 font-black uppercase">Lost</p><p id="stats-lost" class="text-white font-black">0</p></div>
+                </div>
+            </div>
+            <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl">
+                <div class="flex justify-between items-center mb-4"><h3 class="text-xs font-black text-green-500 uppercase italic">Recent Deposits</h3><button onclick="switchTab('dep-history')" class="text-[10px] text-green-500 font-black uppercase">View All</button></div>
+                <div id="dep-history-summary" class="space-y-3"><p class="text-[10px] text-slate-600 italic">No deposit history available.</p></div>
+            </div>
+            <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl">
+                <h3 class="text-xs font-black text-slate-500 uppercase mb-4 italic">Settings & Legal</h3>
+                <div class="space-y-2">
+                    <a href="mailto:Infovelocity@gmail.com" class="flex items-center gap-4 bg-[#07161f] p-4 rounded-xl border border-white/5 hover:bg-[#0f212e] transition-colors"><div class="bg-green-500/10 p-2 rounded-lg"><i data-lucide="mail" class="text-green-500 w-5 h-5"></i></div><div><p class="text-white font-black text-xs uppercase italic">Email Support</p><p class="text-[10px] text-slate-500">Infovelocity@gmail.com</p></div></a>
+                    <button onclick="switchTab('policy')" class="w-full flex items-center gap-4 bg-[#07161f] p-4 rounded-xl border border-white/5 hover:bg-[#0f212e] transition-colors"><div class="bg-blue-500/10 p-2 rounded-lg"><i data-lucide="shield-check" class="text-blue-500 w-5 h-5"></i></div><div class="text-left"><p class="text-white font-black text-xs uppercase italic">Policies & Terms</p><p class="text-[10px] text-slate-500">Security, Privacy & Rules</p></div></button>
+                </div>
+            </div>
+            <button onclick="location.reload()" class="w-full text-red-500 font-black text-[10px] uppercase tracking-widest mt-4">Log out</button>
+        </section>
+
+        <section id="sec-policy" class="hidden tab-content max-w-2xl mx-auto pb-10">
+            <div class="flex items-center gap-4 mb-6"><button onclick="switchTab('profile')" class="bg-[#1a2c38] p-2 rounded-lg text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button><h2 class="text-xl font-black text-white italic uppercase">Policies</h2></div>
+            <div class="space-y-6">
+                <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5"><h3 class="text-green-500 font-black text-sm uppercase mb-3">1. Terms of Service</h3><p class="text-xs text-slate-400 leading-relaxed">By using Velocity Games, you agree to be bound by these terms. You must be at least 18 years of age to register an account. Each user is permitted only one account.</p></div>
+                <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5"><h3 class="text-green-500 font-black text-sm uppercase mb-3">2. Fair Play Policy</h3><p class="text-xs text-slate-400 leading-relaxed">Our games use cryptographically secure random number generation. All outcomes are final once recorded by our servers.</p></div>
+                <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5"><h3 class="text-green-500 font-black text-sm uppercase mb-3">3. Withdrawal Policy</h3><p class="text-xs text-slate-400 leading-relaxed">Minimum withdrawal is ₹1000. Users must make at least one security deposit of ₹500 to verify their identity before withdrawal is activated.</p></div>
+            </div>
+        </section>
+
+        <section id="sec-game" class="hidden tab-content max-w-xl mx-auto">
+            <div id="game-container" class="bg-[#1a2c38] rounded-[2.5rem] min-h-[calc(100vh-220px)] border border-white/5 p-6 flex flex-col items-center justify-between relative shadow-2xl">
+                <button onclick="switchTab('lobby')" class="absolute top-6 left-8 text-slate-500 flex items-center gap-1 font-bold text-[10px] uppercase z-50"><i data-lucide="chevron-left" class="w-3 h-3"></i> Lobby</button>
+                <div id="game-title" class="text-xl font-black italic text-white uppercase mt-10 mb-2 tracking-widest">Game Name</div>
+                <div id="game-ui" class="w-full flex-1 flex flex-col items-center justify-center relative min-h-[300px]"></div>
+                <div class="w-full space-y-3 mt-4">
+                    <div id="extra-configs" class="hidden grid grid-cols-2 gap-2">
+                        <div id="mines-config" class="hidden bg-[#07161f] p-3 rounded-xl border border-white/10 flex items-center"><select id="mine-count" class="bg-transparent text-white font-black w-full outline-none text-sm"><option value="3">3 Mines</option><option value="5">5 Mines</option><option value="10">10 Mines</option></select></div>
+                        <div id="limbo-config" class="hidden bg-[#07161f] p-3 rounded-xl border border-white/10 flex items-center gap-2"><span class="text-[8px] text-slate-500 font-bold uppercase">Target</span><input id="limbo-target" type="number" step="0.1" value="2.0" class="bg-transparent text-white font-black w-full outline-none text-sm"></div>
+                        <div id="dice-config" class="hidden bg-[#07161f] p-3 rounded-xl border border-white/10 flex items-center gap-2"><span class="text-[8px] text-slate-500 font-bold uppercase">Over</span><input id="dice-target" type="number" value="50" class="bg-transparent text-white font-black w-full outline-none text-sm"></div>
+                        <div id="profit-display" class="bg-[#07161f] p-3 rounded-xl border border-white/10 text-center"><p id="game-profit-text" class="text-green-500 font-black text-sm">₹0.00</p></div>
+                    </div>
+                    <div class="bg-[#07161f] border border-white/10 px-4 py-2 rounded-xl flex items-center gap-2"><span class="text-green-500 font-bold text-xs">BET ₹</span><input id="bet-amt" type="number" value="100" min="50" class="bg-transparent text-white font-black text-lg w-full outline-none"></div>
+                    <button id="bet-btn" onclick="executeGameAction()" class="w-full bg-green-500 text-black font-black py-4 rounded-2xl text-xl shadow-xl italic uppercase">Start Game</button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modals -->
+    <div id="auth-modal" class="hidden fixed inset-0 z-[200] bg-black/95 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="bg-[#1a2c38] w-full max-sm rounded-[2rem] p-8 border border-white/5">
+            <div class="flex border-b border-white/10 mb-6">
+                <button onclick="setAuthMode('login')" id="tab-login" class="flex-1 pb-3 text-xs font-black uppercase tracking-widest text-white border-b-2 border-green-500">Login</button>
+                <button onclick="setAuthMode('signup')" id="tab-signup" class="flex-1 pb-3 text-xs font-black uppercase tracking-widest text-slate-500 border-b-2 border-transparent">Sign Up</button>
+            </div>
+            
+            <form onsubmit="handleAuth(event)" class="space-y-4">
+                <div id="email-field" class="hidden"><input id="auth-email" type="email" placeholder="Email Address" class="w-full bg-[#07161f] border border-white/5 p-4 rounded-xl text-white outline-none"></div>
+                <div class="flex gap-2"><span class="bg-[#07161f] border border-white/5 p-4 rounded-xl text-white font-bold">+91</span><input required id="auth-phone" type="tel" pattern="[0-9]{10}" placeholder="Phone Number" class="w-full bg-[#07161f] border border-white/5 p-4 rounded-xl text-white outline-none"></div>
+                <input required id="auth-pass" type="password" placeholder="Password" class="w-full bg-[#07161f] border border-white/5 p-4 rounded-xl text-white outline-none">
+                <button id="auth-submit-btn" class="w-full bg-green-500 text-black font-black py-4 rounded-xl text-lg mt-4 uppercase italic">Login</button>
+            </form>
+            <button onclick="closeModal('auth-modal')" class="w-full text-slate-600 text-[10px] font-black mt-6 uppercase">Close</button>
+        </div>
+    </div>
+
+    <div id="deposit-modal" class="hidden fixed inset-0 z-[201] bg-black/90 backdrop-blur-lg flex items-center justify-center p-6">
+        <div class="bg-[#1a2c38] w-full max-w-sm rounded-[2.5rem] p-8 border border-green-500/30 text-center shadow-[0_0_50px_rgba(59,193,23,0.2)]">
+            <div class="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6"><i data-lucide="shield-alert" class="text-green-500 w-10 h-10"></i></div>
+            <h2 class="text-white font-black text-2xl mb-2 italic uppercase">Action Required</h2>
+            <p class="text-slate-400 text-sm mb-8 leading-relaxed">To activate your withdrawal channel, you must <span class="text-green-500 font-bold">MAKE A DEPOSIT</span> of at least ₹500.</p>
+            <div class="space-y-3">
+                <button onclick="closeModal('deposit-modal'); switchTab('wallet')" class="w-full bg-green-500 text-black font-black py-4 rounded-xl text-sm uppercase shadow-lg shadow-green-500/20">Go to Deposit</button>
+                <button onclick="closeModal('deposit-modal')" class="w-full text-slate-500 font-black py-2 text-[10px] uppercase">Maybe Later</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let users = JSON.parse(localStorage.getItem('v_users_v2')) || [];
+        let currentUser = null;
+        let app = { balance: 0, activeGame: '' };
+        let minesState = { active: false, bet: 0, count: 3, revealed: [], bombs: [], profit: 0 };
+        let authMode = 'login'; 
+
+        const games = [
+            { id: 'plinko', name: 'Plinko Elite', icon: 'chevron-down', color: 'bg-purple-600' },
+            { id: 'mines', name: 'Mines Pro', icon: 'bomb', color: 'bg-orange-500' },
+            { id: 'limbo', name: 'Limbo Rocket', icon: 'rocket', color: 'bg-rose-500' },
+            { id: 'dice', name: 'Mega Dice', icon: 'dice-6', color: 'bg-amber-600' }
+        ];
+
+        function init() {
+            const grid = document.getElementById('game-grid');
+            grid.innerHTML = '';
+            games.forEach(g => {
+                grid.innerHTML += `<div onclick="openGame('${g.id}')" class="cartoon-tile aspect-[4/5] p-4 flex flex-col items-center justify-center text-center"><div class="w-14 h-14 ${g.color} rounded-2xl flex items-center justify-center mb-4 shadow-xl"><i data-lucide="${g.icon}" class="text-white w-7 h-7"></i></div><p class="text-white font-black italic text-[11px] uppercase tracking-tight">${g.name}</p></div>`;
+            });
+            lucide.createIcons();
+        }
+
+        function openAuthModal(mode) { setAuthMode(mode); openModal('auth-modal'); }
+        function setAuthMode(mode) {
+            authMode = mode;
+            const emailField = document.getElementById('email-field');
+            const submitBtn = document.getElementById('auth-submit-btn');
+            const tabLogin = document.getElementById('tab-login');
+            const tabSignup = document.getElementById('tab-signup');
+            if (mode === 'signup') {
+                emailField.classList.remove('hidden'); submitBtn.innerText = "Create Account";
+                tabSignup.className = "flex-1 pb-3 text-xs font-black uppercase tracking-widest text-white border-b-2 border-green-500";
+                tabLogin.className = "flex-1 pb-3 text-xs font-black uppercase tracking-widest text-slate-500 border-b-2 border-transparent";
+            } else {
+                emailField.classList.add('hidden'); submitBtn.innerText = "Login";
+                tabLogin.className = "flex-1 pb-3 text-xs font-black uppercase tracking-widest text-white border-b-2 border-green-500";
+                tabSignup.className = "flex-1 pb-3 text-xs font-black uppercase tracking-widest text-slate-500 border-b-2 border-transparent";
+            }
+        }
+
+        function handleAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('auth-email').value.trim().toLowerCase();
+            const phone = document.getElementById('auth-phone').value.trim();
+            const pass = document.getElementById('auth-pass').value;
+            let existingUser = users.find(u => u.phone === phone);
+            if (authMode === 'login') {
+                if (existingUser && existingUser.password === pass) { currentUser = existingUser; loginSuccess(); }
+                else alert("Error: Account not found or wrong password.");
+            } else {
+                if (existingUser) alert("Account already exists.");
+                else {
+                    const newUser = { email: email || (phone + "@velocity.com"), phone, password: pass, balance: 500, played: 0, won: 0, lost: 0, wit_history: [], dep_history: [], hasDeposited: false }; 
+                    users.push(newUser); currentUser = newUser; saveUsers(); loginSuccess();
+                }
+            }
+        }
+
+        function loginSuccess() {
+            app.balance = currentUser.balance;
+            document.getElementById('auth-btns').classList.add('hidden');
+            document.getElementById('header-user').classList.remove('hidden');
+            document.getElementById('prof-email-display').innerText = currentUser.email.split('@')[0].toUpperCase();
+            updateUI(); closeModal('auth-modal'); switchTab('lobby');
+        }
+
+        function handleInitiateDeposit() {
+            const amount = parseFloat(document.getElementById('dep-val').value);
+            if (amount < 500) { alert("Minimum deposit is ₹500"); return; }
+            document.getElementById('pay-amt-display').innerText = amount;
+            
+            const upiId = "velocityacademy955699.rzp@rxairtel";
+            const upiUrl = `upi://pay?pa=${upiId}&pn=Velocity%20Games&am=${amount}&cu=INR`;
+            
+            // Set redirect link
+            document.getElementById('upi-link').href = upiUrl;
+            
+            // Set QR Image
+            const qrImg = document.getElementById('qr-image');
+            qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiUrl)}`;
+            
+            document.getElementById('payment-page').style.display = 'flex';
+        }
+
+        function closePaymentPage() { document.getElementById('payment-page').style.display = 'none'; }
+
+        function verifyDeposit() { 
+            const amount = parseFloat(document.getElementById('dep-val').value);
+            const utr = document.getElementById('utr-input').value.trim();
+            if (amount < 500 || utr.length < 10) { alert("Check amount or UTR."); return; }
+            
+            if(currentUser) {
+                const depositEntry = { id: utr, amount: amount, status: 'Processing', date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString() };
+                currentUser.dep_history.unshift(depositEntry);
+                updateUI();
+                alert("UTR Submitted! Verification in progress. Please wait 2-3 minutes for balance update.");
+                
+                setTimeout(() => {
+                    app.balance += amount;
+                    depositEntry.status = 'Success';
+                    currentUser.hasDeposited = true;
+                    saveUsers();
+                    updateUI();
+                    document.getElementById('win-amount-text').innerText = "CREDIT +₹" + amount.toFixed(2);
+                    document.getElementById('win-toast').classList.remove('hidden');
+                    setTimeout(() => document.getElementById('win-toast').classList.add('hidden'), 4000);
+                }, 120000); 
+            }
+        }
+
+        function getRiggedOutcome() {
+            const bets = currentUser.played;
+            const bal = app.balance;
+            const chain = ["lose", "win_small", "lose", "lose", "win_small", "lose", "win_small", "lose", "lose", "win_small"];
+            const currentChainResult = chain[bets % chain.length];
+            if (bal >= 3500) return Math.random() > 0.1 ? "lose" : "win_small";
+            if (bal < 300 && Math.random() > 0.5) return "win_small";
+            return currentChainResult;
+        }
+
+        function handleWithdraw() {
+            if(!currentUser.hasDeposited) { openModal('deposit-modal'); return; }
+            const amt = parseFloat(document.getElementById('wit-amt').value);
+            if(amt < 1000 || amt > app.balance) return alert("Check amount / Min ₹1000");
+            app.balance -= amt;
+            currentUser.wit_history.unshift({ id: Math.floor(Math.random() * 900000) + 100000, amount: amt, status: 'Pending', date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString() });
+            saveUsers(); updateUI(); alert("Withdrawal request submitted!");
+        }
+
+        function saveUsers() { localStorage.setItem('v_users_v2', JSON.stringify(users)); }
+        
+        function updateUI() {
+            document.getElementById('header-balance').innerText = app.balance.toFixed(2);
+            if(currentUser) {
+                currentUser.balance = app.balance;
+                document.getElementById('stats-played').innerText = currentUser.played;
+                document.getElementById('stats-won').innerText = currentUser.won;
+                document.getElementById('stats-lost').innerText = currentUser.lost;
+                
+                const renderHistory = (data, element, defaultColor) => {
+                    if(!element) return;
+                    if(data.length > 0) {
+                        element.innerHTML = data.map(w => {
+                            let statusColor = defaultColor;
+                            if(w.status === 'Processing' || w.status === 'Pending') statusColor = 'amber';
+                            if(w.status === 'Success') statusColor = 'green';
+                            
+                            return `<div class="bg-[#07161f] p-4 rounded-xl border border-white/5 flex justify-between items-center transition-all"><div><p class="text-white font-black text-sm italic">₹${w.amount.toFixed(2)}</p><p class="text-[9px] text-slate-500 uppercase font-bold">${w.date} • ${w.time || ''}</p></div><div class="flex items-center gap-2"><span class="bg-${statusColor}-500/20 text-${statusColor}-500 text-[8px] font-black px-2 py-1 rounded uppercase">${w.status}</span><i data-lucide="${w.status === 'Success' ? 'shield-check' : 'clock'}" class="w-3 h-3 text-slate-600"></i></div></div>`
+                        }).join('');
+                    }
+                };
+                renderHistory(currentUser.wit_history, document.getElementById('wit-history-summary'), 'amber');
+                renderHistory(currentUser.wit_history, document.getElementById('full-history-list'), 'amber');
+                renderHistory(currentUser.dep_history, document.getElementById('dep-history-summary'), 'green');
+                renderHistory(currentUser.dep_history, document.getElementById('full-dep-history-list'), 'green');
+                saveUsers(); lucide.createIcons();
+            }
+        }
+
+        function openGame(id) { if(!currentUser) return openAuthModal('signup'); app.activeGame = id; switchTab('game'); loadGameUI(id); }
+        
+        function loadGameUI(id) {
+            const ui = document.getElementById('game-ui'); ui.innerHTML = '';
+            document.getElementById('game-title').innerText = id.toUpperCase();
+            document.getElementById('extra-configs').classList.remove('hidden');
+            document.querySelectorAll('#extra-configs > div').forEach(d => d.classList.add('hidden'));
+            if(id === 'mines') {
+                document.getElementById('mines-config').classList.remove('hidden'); document.getElementById('profit-display').classList.remove('hidden');
+                ui.innerHTML = `<div id="mines-grid" class="grid grid-cols-5 gap-2 w-full max-w-[280px]"></div>`;
+                const grid = document.getElementById('mines-grid'); for(let i=0; i<25; i++) grid.innerHTML += `<div onclick="clickMine(${i})" id="mine-${i}" class="mine-tile"></div>`;
+            } else if(id === 'plinko') {
+                document.getElementById('extra-configs').classList.add('hidden');
+                ui.innerHTML = `<div id="plinko-board" class="w-[300px] h-[330px] bg-[#07161f] rounded-3xl relative border border-white/5 overflow-hidden"><div id="plinko-ball" class="hidden"></div></div>`;
+                initPlinko();
+            } else if(id === 'limbo') {
+                document.getElementById('limbo-config').classList.remove('hidden');
+                ui.innerHTML = `<div id="limbo-rocket" class="text-6xl mb-4">🚀</div><div id="limbo-display" class="text-6xl font-black text-white italic">1.00x</div>`;
+            } else if(id === 'dice') {
+                document.getElementById('dice-config').classList.remove('hidden');
+                ui.innerHTML = `<div id="dice-result" class="text-7xl font-black text-green-500 mb-4">50</div><div class="w-full bg-[#07161f] h-3 rounded-full overflow-hidden relative"><div id="dice-slider" class="absolute h-full bg-green-500 left-0 transition-all duration-300" style="width: 50%;"></div></div>`;
+            }
+            lucide.createIcons();
+        }
+
+        function executeGameAction() {
+            const bet = parseFloat(document.getElementById('bet-amt').value);
+            if(bet < 50 || bet > app.balance) return alert("Min ₹50");
+            if(app.activeGame === 'plinko') runPlinko(bet);
+            else if(app.activeGame === 'mines') { if(!minesState.active) startMines(bet); else cashoutMines(); }
+            else if(app.activeGame === 'limbo') runLimbo(bet);
+            else if(app.activeGame === 'dice') runDice(bet);
+        }
+
+        function startMines(bet) {
+            app.balance -= bet; currentUser.played++; updateUI();
+            minesState = { active: true, bet, count: parseInt(document.getElementById('mine-count').value), revealed: [], bombs: [], profit: bet };
+            while(minesState.bombs.length < minesState.count) { let r = Math.floor(Math.random()*25); if(!minesState.bombs.includes(r)) minesState.bombs.push(r); }
+            document.querySelectorAll('.mine-tile').forEach(t => { t.className = 'mine-tile'; t.innerHTML = ''; });
+            document.getElementById('bet-btn').innerText = "CASHOUT (₹" + bet.toFixed(2) + ")";
+        }
+
+        function clickMine(idx) {
+            if(!minesState.active || minesState.revealed.includes(idx)) return;
+            const tile = document.getElementById(`mine-${idx}`);
+            tile.classList.add('revealed');
+            const riggedToLose = getRiggedOutcome() === "lose";
+            const forceBombHit = riggedToLose && (minesState.revealed.length >= 1 || Math.random() < 0.3);
+            if(minesState.bombs.includes(idx) || forceBombHit) {
+                if(!minesState.bombs.includes(idx)) minesState.bombs.push(idx);
+                tile.classList.add('has-bomb'); tile.innerHTML = `<i data-lucide="bomb" class="text-white w-5 h-5"></i>`; gameOverMines(false);
+            }
+            else { 
+                minesState.revealed.push(idx); tile.classList.add('has-gem'); tile.innerHTML = `<i data-lucide="gem" class="text-white w-5 h-5"></i>`; 
+                minesState.profit = minesState.bet * (1 + (minesState.revealed.length * 0.25)); 
+                document.getElementById('bet-btn').innerText = "CASHOUT (₹" + minesState.profit.toFixed(2) + ")"; 
+            }
+            lucide.createIcons();
+        }
+
+        function cashoutMines() { app.balance += minesState.profit; currentUser.won++; showWinToast(minesState.profit); gameOverMines(true); }
+        function gameOverMines(won) {
+            minesState.active = false; if(!won) currentUser.lost++; updateUI();
+            minesState.bombs.forEach(b => { const t = document.getElementById(`mine-${b}`); if(t && !t.classList.contains('revealed')) t.classList.add('revealed', 'has-bomb'); });
+            setTimeout(() => document.getElementById('bet-btn').innerText = "Start Game", 1000);
+        }
+
+        function runLimbo(bet) {
+            const target = parseFloat(document.getElementById('limbo-target').value);
+            app.balance -= bet; currentUser.played++; updateUI();
+            const rocket = document.getElementById('limbo-rocket'); const display = document.getElementById('limbo-display'); rocket.classList.add('rocket-fly');
+            const outcome = getRiggedOutcome(); let crashPoint = outcome === "lose" ? 1.05 : target + 0.5;
+            let count = 1.0; const interval = setInterval(() => {
+                count += 0.1; display.innerText = count.toFixed(2) + "x";
+                if(count >= crashPoint) { clearInterval(interval); rocket.classList.remove('rocket-fly'); if(crashPoint >= target) { const win = bet * target; app.balance += win; currentUser.won++; showWinToast(win); } else { currentUser.lost++; } updateUI(); }
+            }, 60);
+        }
+
+        function runDice(bet) {
+            const target = parseInt(document.getElementById('dice-target').value); app.balance -= bet; currentUser.played++; updateUI();
+            let roll = Math.floor(Math.random() * 100) + 1;
+            if(roll >= target && Math.random() < 0.35) roll = Math.floor(Math.random() * (target - 1)) + 1;
+            document.getElementById('dice-result').innerText = roll; document.getElementById('dice-slider').style.width = roll + "%";
+            if(roll >= target) { const win = bet * (99 / (100 - target)); app.balance += win; currentUser.won++; showWinToast(win); } else { currentUser.lost++; }
+            updateUI();
+        }
+
+        function showWinToast(amt) { document.getElementById('win-amount-text').innerText = "WIN +₹" + amt.toFixed(2); document.getElementById('win-toast').classList.remove('hidden'); setTimeout(() => document.getElementById('win-toast').classList.add('hidden'), 2000); }
+        
+        function switchTab(id) { 
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden')); 
+            const target = document.getElementById(`sec-${id}`);
+            if(target) target.classList.remove('hidden'); 
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.replace('text-green-500', 'text-slate-500')); 
+            const btn = document.querySelector(`nav button[onclick*="${id}"]`); 
+            if(btn) btn.classList.replace('text-slate-500', 'text-green-500'); 
+            window.scrollTo(0,0);
+        }
+
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        
+        function initPlinko() {
+            const board = document.getElementById('plinko-board');
+            if(!board) return;
+            for(let r=0; r<8; r++) { const count = r + 3; for(let p=0; p<count; p++) { const peg = document.createElement('div'); peg.className = 'peg'; peg.style.top = (r * 32 + 40) + 'px'; peg.style.left = (150 - (count - 1) * 14 + p * 28) + 'px'; board.appendChild(peg); } }
+            const PLINKO_MULT = [10, 5, 2, 1, 0.2, 1, 2, 5, 10];
+            PLINKO_MULT.forEach((m, i) => { const bin = document.createElement('div'); bin.className = 'plinko-bin'; bin.style.left = (150 - (PLINKO_MULT.length-1)*16 + i * 32) + 'px'; bin.style.backgroundColor = m >= 5 ? '#ef4444' : (m >= 1 ? '#3bc117' : '#f59e0b'); bin.innerText = m + 'x'; board.appendChild(bin); });
+        }
+
+        function runPlinko(bet) {
+            app.balance -= bet; currentUser.played++; updateUI();
+            const ball = document.getElementById('plinko-ball');
+            ball.style.transition = 'none'; ball.style.top = '10px'; ball.style.left = '150px'; ball.classList.remove('hidden');
+            const outcome = getRiggedOutcome();
+            const PLINKO_MULT = [10, 5, 2, 1, 0.2, 1, 2, 5, 10];
+            let targetBin = outcome === "lose" ? 4 : (Math.random() > 0.5 ? 3 : 5);
+            let path = [];
+            for(let i=0; i<8; i++) { path.push({ y: (i * 32 + 40), x: (150 - (i+2)*5 + Math.random()*10) }); }
+            path.push({ y: 300, x: (150 - (PLINKO_MULT.length-1)*16 + targetBin * 32) });
+            let step = 0; ball.style.transition = 'top 0.3s linear, left 0.3s ease-in-out';
+            const animate = () => {
+                if(step < path.length) { ball.style.top = path[step].y + 'px'; ball.style.left = path[step].x + 'px'; step++; setTimeout(animate, 300); }
+                else { const win = bet * PLINKO_MULT[targetBin]; app.balance += win; if(win > bet) { currentUser.won++; showWinToast(win); } else { currentUser.lost++; } updateUI(); setTimeout(() => ball.classList.add('hidden'), 500); }
+            };
+            setTimeout(animate, 50);
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
