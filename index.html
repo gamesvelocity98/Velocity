@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -502,10 +504,36 @@
             const target = parseFloat(document.getElementById('limbo-target').value);
             app.balance -= bet; currentUser.played++; updateUI();
             const rocket = document.getElementById('limbo-rocket'); const display = document.getElementById('limbo-display'); rocket.classList.add('rocket-fly');
-            const outcome = getRiggedOutcome(); let crashPoint = outcome === "lose" ? 1.05 : target + 0.5;
-            let count = 1.0; const interval = setInterval(() => {
-                count += 0.1; display.innerText = count.toFixed(2) + "x";
-                if(count >= crashPoint) { clearInterval(interval); rocket.classList.remove('rocket-fly'); if(crashPoint >= target) { const win = bet * target; app.balance += win; currentUser.won++; showWinToast(win); } else { currentUser.lost++; } updateUI(); }
+            
+            // RIGGED LOGIC: Lose most of the time, especially on high multipliers (5x, 10x etc)
+            let outcome = getRiggedOutcome();
+            const isHighTarget = target >= 3;
+            // 92% chance to lose if target is high, 70% chance to lose even if target is low
+            const forceLose = isHighTarget ? Math.random() < 0.92 : Math.random() < 0.70;
+            
+            let crashPoint;
+            if(outcome === "lose" || forceLose) {
+                // Crashes very early (between 1.01 and 1.81)
+                crashPoint = 1.01 + (Math.random() * 0.8);
+            } else {
+                // Small chance to actually hit the target
+                crashPoint = target + 0.15;
+            }
+
+            let count = 1.0; 
+            const interval = setInterval(() => {
+                count += 0.1; 
+                display.innerText = count.toFixed(2) + "x";
+                if(count >= crashPoint) { 
+                    clearInterval(interval); 
+                    rocket.classList.remove('rocket-fly'); 
+                    if(crashPoint >= target) { 
+                        const win = bet * target; app.balance += win; currentUser.won++; showWinToast(win); 
+                    } else { 
+                        currentUser.lost++; 
+                    } 
+                    updateUI(); 
+                }
             }, 60);
         }
 
