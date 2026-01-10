@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,7 +37,6 @@
         .rocket-fly { animation: rocket-shake 0.1s infinite; }
         @keyframes rocket-shake { 0%, 100% { transform: translateY(0) rotate(-45deg); } 50% { transform: translateY(-10px) rotate(-45deg); } }
 
-        /* Payment Page Styles */
         #payment-page {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: white; z-index: 1000; display: none; flex-direction: column;
@@ -92,7 +92,7 @@
                 <button onclick="closePaymentPage()" class="text-gray-400 font-black text-[10px] uppercase tracking-tighter mb-8 block w-full hover:text-blue-600 transition-colors">Cancel Transaction</button>
 
                 <div class="flex justify-center items-center gap-6 opacity-80">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Paytm_Logo_%28standalone%29.svg" class="h-4" alt="Paytm">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" class="h-6" alt="UPI">
                 </div>
             </div>
         </div>
@@ -166,13 +166,13 @@
             </div>
         </section>
 
-        <!-- Withdrawal History -->
+        <!-- Withdrawal History (Full Tab) -->
         <section id="sec-history" class="hidden tab-content max-w-lg mx-auto">
-            <div class="flex items-center gap-4 mb-6"><button onclick="switchTab('wallet')" class="bg-[#1a2c38] p-2 rounded-lg text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button><h2 class="text-xl font-black text-white italic uppercase">Withdrawal History</h2></div>
+            <div class="flex items-center gap-4 mb-6"><button onclick="switchTab('profile')" class="bg-[#1a2c38] p-2 rounded-lg text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button><h2 class="text-xl font-black text-white italic uppercase">Withdrawal History</h2></div>
             <div id="full-history-list" class="space-y-3"></div>
         </section>
 
-        <!-- Deposit History -->
+        <!-- Deposit History (Full Tab) -->
         <section id="sec-dep-history" class="hidden tab-content max-w-lg mx-auto">
             <div class="flex items-center gap-4 mb-6"><button onclick="switchTab('profile')" class="bg-[#1a2c38] p-2 rounded-lg text-white"><i data-lucide="arrow-left" class="w-5 h-5"></i></button><h2 class="text-xl font-black text-white italic uppercase">Deposit History</h2></div>
             <div id="full-dep-history-list" class="space-y-3"></div>
@@ -194,10 +194,19 @@
                     <div class="bg-[#07161f] p-3 rounded-xl border border-white/5 text-center"><p class="text-[8px] text-red-500 font-black uppercase">Lost</p><p id="stats-lost" class="text-white font-black">0</p></div>
                 </div>
             </div>
+
+            <!-- Recent Deposits -->
             <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl">
                 <div class="flex justify-between items-center mb-4"><h3 class="text-xs font-black text-green-500 uppercase italic">Recent Deposits</h3><button onclick="switchTab('dep-history')" class="text-[10px] text-green-500 font-black uppercase">View All</button></div>
                 <div id="dep-history-summary" class="space-y-3"><p class="text-[10px] text-slate-600 italic">No deposit history available.</p></div>
             </div>
+
+            <!-- Recent Withdrawals -->
+            <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl">
+                <div class="flex justify-between items-center mb-4"><h3 class="text-xs font-black text-red-500 uppercase italic">Recent Withdrawals</h3><button onclick="switchTab('history')" class="text-[10px] text-red-500 font-black uppercase">View All</button></div>
+                <div id="wit-history-summary" class="space-y-3"><p class="text-[10px] text-slate-600 italic">No withdrawal history available.</p></div>
+            </div>
+
             <div class="bg-[#1a2c38] p-6 rounded-2xl border border-white/5 shadow-xl">
                 <h3 class="text-xs font-black text-slate-500 uppercase mb-4 italic">Settings & Legal</h3>
                 <div class="space-y-2">
@@ -334,6 +343,7 @@
         }
 
         function handleInitiateDeposit() {
+            if(!currentUser) return openAuthModal('signup');
             const amount = parseFloat(document.getElementById('dep-val').value);
             if (amount < 500) { alert("Minimum deposit is ₹500"); return; }
             document.getElementById('pay-amt-display').innerText = amount;
@@ -355,9 +365,10 @@
                 const depositEntry = { id: utr, amount: amount, status: 'Processing', date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString() };
                 currentUser.dep_history.unshift(depositEntry);
                 updateUI();
-                alert("please wait for verification");
                 
-                // Automatically credit in 4.5 minutes
+                // POPUP UPDATED EXACTLY AS REQUESTED
+                alert("Deposit Received ! Please Wait For The Verification .");
+                
                 setTimeout(() => {
                     app.balance += amount;
                     depositEntry.status = 'Success';
@@ -367,20 +378,12 @@
                     document.getElementById('win-amount-text').innerText = "CREDIT +₹" + amount.toFixed(2);
                     document.getElementById('win-toast').classList.remove('hidden');
                     setTimeout(() => document.getElementById('win-toast').classList.add('hidden'), 4000);
-                }, 270000); 
+                }, 60000); 
             }
         }
 
-        function getRiggedOutcome() {
-            const bets = currentUser.played;
-            const bal = app.balance;
-            const chain = ["lose", "win_small", "lose", "lose", "win_small", "lose", "win_small", "lose", "lose", "win_small"];
-            if (bal >= 3500) return Math.random() > 0.1 ? "lose" : "win_small";
-            if (bal < 300 && Math.random() > 0.5) return "win_small";
-            return chain[bets % chain.length];
-        }
-
         function handleWithdraw() {
+            if(!currentUser) return openAuthModal('signup');
             if(!currentUser.hasDeposited) { openModal('deposit-modal'); return; }
             const amt = parseFloat(document.getElementById('wit-amt').value);
             if(amt < 1000 || amt > app.balance) return alert("Check amount / Min ₹1000");
@@ -401,6 +404,10 @@
                 
                 const renderHistory = (data, element, defaultColor) => {
                     if(!element) return;
+                    if (data.length === 0) {
+                        element.innerHTML = `<p class="text-[10px] text-slate-600 italic">No history available.</p>`;
+                        return;
+                    }
                     element.innerHTML = data.map(w => {
                         let statusColor = defaultColor;
                         if(w.status === 'Processing' || w.status === 'Pending') statusColor = 'amber';
@@ -408,11 +415,23 @@
                         return `<div class="bg-[#07161f] p-4 rounded-xl border border-white/5 flex justify-between items-center"><div><p class="text-white font-black text-sm italic">₹${w.amount.toFixed(2)}</p><p class="text-[9px] text-slate-500 uppercase font-bold">${w.date} • ${w.time || ''}</p></div><div class="flex items-center gap-2"><span class="bg-${statusColor}-500/20 text-${statusColor}-500 text-[8px] font-black px-2 py-1 rounded uppercase">${w.status}</span><i data-lucide="${w.status === 'Success' ? 'shield-check' : 'clock'}" class="w-3 h-3 text-slate-600"></i></div></div>`
                     }).join('');
                 };
+
+                renderHistory(currentUser.wit_history.slice(0, 3), document.getElementById('wit-history-summary'), 'amber');
+                renderHistory(currentUser.dep_history.slice(0, 3), document.getElementById('dep-history-summary'), 'green');
                 renderHistory(currentUser.wit_history, document.getElementById('full-history-list'), 'amber');
-                renderHistory(currentUser.dep_history, document.getElementById('dep-history-summary'), 'green');
                 renderHistory(currentUser.dep_history, document.getElementById('full-dep-history-list'), 'green');
+
                 saveUsers(); lucide.createIcons();
             }
+        }
+
+        function getRiggedOutcome() {
+            const bets = currentUser.played;
+            const bal = app.balance;
+            const chain = ["lose", "win_small", "lose", "lose", "win_small", "lose", "win_small", "lose", "lose", "win_small"];
+            if (bal >= 3500) return Math.random() > 0.1 ? "lose" : "win_small";
+            if (bal < 300 && Math.random() > 0.5) return "win_small";
+            return chain[bets % chain.length];
         }
 
         function openGame(id) { if(!currentUser) return openAuthModal('signup'); app.activeGame = id; switchTab('game'); loadGameUI(id); }
@@ -441,6 +460,7 @@
         }
 
         function executeGameAction() {
+            if(!currentUser) return openAuthModal('signup');
             const bet = parseFloat(document.getElementById('bet-amt').value);
             if(bet < 50 || bet > app.balance) return alert("Min ₹50");
             if(app.activeGame === 'plinko') runPlinko(bet);
@@ -510,6 +530,10 @@
         function showWinToast(amt) { document.getElementById('win-amount-text').innerText = "WIN +₹" + amt.toFixed(2); document.getElementById('win-toast').classList.remove('hidden'); setTimeout(() => document.getElementById('win-toast').classList.add('hidden'), 2000); }
         
         function switchTab(id) { 
+            if (!currentUser && id !== 'lobby' && id !== 'policy') {
+                openAuthModal('signup');
+                return;
+            }
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden')); 
             const target = document.getElementById(`sec-${id}`);
             if(target) target.classList.remove('hidden'); 
@@ -548,3 +572,5 @@
     </script>
 </body>
 </html>
+
+--- END OF FILE ---
