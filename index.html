@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -366,7 +365,6 @@
                 currentUser.dep_history.unshift(depositEntry);
                 updateUI();
                 
-                // POPUP UPDATED EXACTLY AS REQUESTED
                 alert("Deposit Received ! Please Wait For The Verification .");
                 
                 setTimeout(() => {
@@ -388,13 +386,42 @@
             const amt = parseFloat(document.getElementById('wit-amt').value);
             if(amt < 1000 || amt > app.balance) return alert("Check amount / Min ₹1000");
             app.balance -= amt;
-            currentUser.wit_history.unshift({ id: Math.floor(Math.random() * 900000) + 100000, amount: amt, status: 'Pending', date: new Date().toLocaleDateString(), time: new Date().toLocaleTimeString() });
+            // ADDED timestamp FOR AUTOMATION
+            currentUser.wit_history.unshift({ 
+                id: Math.floor(Math.random() * 900000) + 100000, 
+                amount: amt, 
+                status: 'Pending', 
+                date: new Date().toLocaleDateString(), 
+                time: new Date().toLocaleTimeString(),
+                timestamp: Date.now() 
+            });
             saveUsers(); updateUI(); alert("Withdrawal request submitted!");
         }
 
         function saveUsers() { localStorage.setItem('v_users_v2', JSON.stringify(users)); }
         
+        // AUTOMATIC WITHDRAWAL SUCCESS LOGIC (10 HOURS)
+        function checkAutoWithdrawSuccess() {
+            if(!currentUser || !currentUser.wit_history) return;
+            let changed = false;
+            const TEN_HOURS_MS = 10 * 60 * 60 * 1000;
+            const now = Date.now();
+
+            currentUser.wit_history.forEach(item => {
+                if (item.status === 'Pending' && item.timestamp) {
+                    if (now - item.timestamp >= TEN_HOURS_MS) {
+                        item.status = 'Success';
+                        changed = true;
+                    }
+                }
+            });
+            return changed;
+        }
+
         function updateUI() {
+            // Check for auto-success before rendering
+            if(checkAutoWithdrawSuccess()) saveUsers();
+
             document.getElementById('header-balance').innerText = app.balance.toFixed(2);
             if(currentUser) {
                 currentUser.balance = app.balance;
@@ -572,5 +599,3 @@
     </script>
 </body>
 </html>
-
---- END OF FILE ---
